@@ -1,111 +1,116 @@
-# 🚀 Central Operacional de Automação em Tempo Real
+# 🚀 Automation Operations Platform
 
-Plataforma profissional de automação operacional com dashboard SaaS premium, monitoramento em tempo real e execução automatizada de fluxos via navegador.
+Central Operacional de Automação em Tempo Real - Uma plataforma profissional para monitoramento e execução de processos automatizados com visual premium estilo SaaS.
 
-## 📋 Features
+## ✨ Características
 
-✅ **Dashboard Premium** - Interface SaaS moderna com dark mode
-✅ **Automação em Tempo Real** - Playwright/Selenium para RPA
-✅ **Monitoramento Live** - WebSocket para updates instantâneos
-✅ **Terminal Cyber** - Console de logs com colorização
-✅ **Múltiplas Sessões** - Processamento paralelo escalável
-✅ **Screenshots Automáticas** - Captura e preview em tempo real
-✅ **Gerenciamento de Filas** - Fila operacional completa
-✅ **Sistema de Logs** - Registro completo com filtros
-✅ **OCR/Documentos** - Análise de imagens e PDFs
-✅ **Webhooks/APIs** - Integrações externas
+- 🎯 **Automação RPA** com Playwright/Selenium
+- 📊 **Dashboard Premium** estilo SaaS cyber
+- 📱 **Monitoramento em Tempo Real** com WebSocket
+- 🖥️ **Browser Integrado** para visualização ao vivo
+- 📸 **Screenshots Automáticas** com histórico
+- 📝 **Terminal Cyber** com logs vivos
+- ⚡ **Processamento Paralelo** de múltiplas sessões
+- 🎨 **Dark Mode** com animações suaves
+- 🔍 **OCR/Documentos** para análise de imagens
+- 🔐 **Autenticação JWT** segura
+- 📲 **Integrações** WhatsApp API e Webhooks
 
-## 🛠 Stack Tecnológico
+## 🏗️ Stack Tecnológico
 
-- **Frontend**: React 18, Next.js 14, TailwindCSS, Socket.io
-- **Backend**: Node.js, Express, Socket.io
-- **Automação**: Playwright, Puppeteer
-- **Banco de Dados**: PostgreSQL
-- **Realtime**: WebSocket (Socket.io)
-- **Deploy**: Docker, Docker Compose
+### Frontend
+- **React 18** + **Next.js 14**
+- **TailwindCSS** para styling
+- **Socket.io Client** para realtime
+- **Zustand** para state management
+- **Framer Motion** para animações
 
-## 📦 Estrutura do Projeto
+### Backend
+- **Node.js** + **Express.js**
+- **PostgreSQL** para persistência
+- **Redis** para cache/sessões
+- **Playwright** para automação
+- **Socket.io** para WebSocket
+- **TypeScript** para type safety
+
+### DevOps
+- **Docker** + **Docker Compose**
+- **Linux VPS** ready
+
+## 📁 Estrutura do Projeto
 
 ```
-automation-ops-platform/
-├── frontend/          # React/Next.js (port 3000)
-├── backend/           # Node.js/Express (port 5000)
-├── docker-compose.yml # Orquestração de containers
-└── README.md
+.
+├── frontend/              # React/Next.js app
+├── backend/               # Node.js/Express API
+├── docker-compose.yml     # Orquestração de containers
+├── .env.example          # Variáveis de ambiente
+└── README.md             # Este arquivo
 ```
 
 ## 🚀 Quick Start
 
-### Pré-requisitos
-- Node.js 18+
-- Docker & Docker Compose
-- PostgreSQL 14+
-
-### Instalação Local
+### Com Docker (Recomendado)
 
 ```bash
 # Clone o repositório
 git clone https://github.com/kleyltonvasconcelos999-lab/automation-ops-platform.git
 cd automation-ops-platform
 
-# Instale dependências
-npm install
-
-# Configure variáveis de ambiente
-cp backend/.env.example backend/.env
-cp frontend/.env.example frontend/.env
-
-# Inicie em desenvolvimento
-npm run dev
-```
-
-### Com Docker
-
-```bash
-# Build das imagens
-npm run docker:build
+# Configure as variáveis de ambiente
+cp .env.example .env
 
 # Inicie os containers
-npm run docker:up
+docker-compose up -d
 
-# Acesse
+# Acesse a aplicação
 # Frontend: http://localhost:3000
-# Backend: http://localhost:5000
-# API Docs: http://localhost:5000/api/docs
+# Backend: http://localhost:3001
+```
+
+### Desenvolvimento Local
+
+```bash
+# Instale dependências
+cd backend && npm install
+cd ../frontend && npm install
+cd ..
+
+# Configure .env
+cp .env.example .env
+
+# Inicie o PostgreSQL e Redis (você pode usar Docker para isso)
+# docker-compose up postgres redis -d
+
+# Inicie em modo desenvolvimento
+npm run dev
 ```
 
 ## 📖 Documentação
 
-- [Frontend Setup](./frontend/README.md)
 - [Backend Setup](./backend/README.md)
-- [API Documentation](./docs/API.md)
-- [Arquitetura](./docs/ARCHITECTURE.md)
-- [Guia de Uso](./docs/USAGE.md)
+- [Frontend Setup](./frontend/README.md)
+- [API Documentation](./backend/docs/API.md)
+- [Database Schema](./backend/docs/SCHEMA.md)
+- [Deployment Guide](./docs/DEPLOYMENT.md)
 
-## 🎨 Visual
+## 🔐 Segurança
 
-### Cores
-- 🟢 Verde: Sucesso
-- 🔴 Vermelho: Erro
-- 🟡 Amarelo: Alerta
-- 🔵 Azul: Realtime
-- ⚫ Dark: Background principal
-
-### Componentes
-- Dashboard com 3 colunas
-- Lista de Execuções (esquerda)
-- Terminal Live (centro)
-- Browser Integrado (direita)
-- Status Bar (rodapé)
-
-## 🔧 Configuração
-
-Veja `.env.example` em cada pasta para variáveis de ambiente.
+- JWT Authentication
+- CORS Protection
+- Rate Limiting
+- Input Validation
+- SQL Injection Prevention
+- XSS Protection
 
 ## 📝 Licença
 
-MIT
+MIT License - veja [LICENSE](./LICENSE) para detalhes
 
 ## 👤 Autor
 
 kleyltonvasconcelos999-lab
+
+---
+
+**Feito com ❤️ para automação operacional profissional**

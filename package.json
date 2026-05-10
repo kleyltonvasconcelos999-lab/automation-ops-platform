@@ -2,7 +2,7 @@
   "name": "automation-ops-platform",
   "version": "1.0.0",
   "description": "Central Operacional de Automação em Tempo Real",
-  "main": "backend/src/server.js",
+  "private": true,
   "scripts": {
     "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
     "dev:backend": "cd backend && npm run dev",
@@ -15,13 +15,8 @@
     "docker:up": "docker-compose up -d",
     "docker:down": "docker-compose down"
   },
-  "keywords": [
-    "automation",
-    "rpa",
-    "monitoring",
-    "realtime",
-    "dashboard"
-  ],
-  "author": "kleyltonvasconcelos999-lab",
-  "license": "MIT"
+  "workspaces": [
+    "backend",
+    "frontend"
+  ]
 }

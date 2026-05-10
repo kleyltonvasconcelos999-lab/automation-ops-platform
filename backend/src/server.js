@@ -1,151 +1,90 @@
-import express from 'express';
-import cors from 'express-cors';
-import helmet from 'helmet';
-import { createServer } from 'http';
-import { Server as SocketIOServer } from 'socket.io';
-import dotenv from 'dotenv';
-import rateLimit from 'express-rate-limit';
+require('dotenv').config();
+const express = require('express');
+const cors = require('cors');
+const helmet = require('helmet');
+const http = require('http');
+const socketIO = require('socket.io');
 
-// Importar rotas e middleware
-import { setupDatabase } from './database/index.js';
-import { initializeRedis } from './services/redis/index.js';
-import { setupWebSocket } from './services/websocket/index.js';
-import { logger } from './utils/logger.js';
-import { errorHandler } from './middleware/errorHandler.js';
-import { requestLogger } from './middleware/requestLogger.js';
-
-// Rotas
-import authRoutes from './api/routes/auth.js';
-import executionRoutes from './api/routes/execution.js';
-import sessionRoutes from './api/routes/session.js';
-import taskRoutes from './api/routes/task.js';
-import logsRoutes from './api/routes/logs.js';
-import screenshotsRoutes from './api/routes/screenshots.js';
-import statsRoutes from './api/routes/stats.js';
-
-// Carregar variáveis de ambiente
-dotenv.config();
+const config = require('./config');
+const logger = require('./config/logger');
+const { initializeDatabase } = require('./services/database');
+const { initializeRedis } = require('./services/redis');
+const { setupWebSocket } = require('./services/websocket');
+const { setupRoutes } = require('./api/routes');
 
 const app = express();
-const httpServer = createServer(app);
-const io = new SocketIOServer(httpServer, {
+const server = http.createServer(app);
+const io = socketIO(server, {
   cors: {
-    origin: process.env.WS_CORS_ORIGIN || 'http://localhost:3001',
-    credentials: true,
-  },
-  pingInterval: parseInt(process.env.WS_PING_INTERVAL || '25000'),
-  pingTimeout: 20000,
+    origin: config.CORS_ORIGIN || 'http://localhost:3001',
+    methods: ['GET', 'POST']
+  }
 });
 
-// ============================================
-// MIDDLEWARE GLOBAL
-// ============================================
-
+// Middlewares
 app.use(helmet());
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
-// Rate Limiting
-const limiter = rateLimit({
-  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000'),
-  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '100'),
-  message: 'Too many requests from this IP, please try again later.',
-});
-app.use('/api/', limiter);
-
-// Request Logger
-app.use(requestLogger);
-
-// ============================================
-// ROTAS
-// ============================================
-
-app.use('/api/auth', authRoutes);
-app.use('/api/execution', executionRoutes);
-app.use('/api/session', sessionRoutes);
-app.use('/api/task', taskRoutes);
-app.use('/api/logs', logsRoutes);
-app.use('/api/screenshots', screenshotsRoutes);
-app.use('/api/stats', statsRoutes);
-
-// Health Check
+// Health check
 app.get('/health', (req, res) => {
-  res.json({
-    status: 'ok',
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// API Routes
+app.use('/api', setupRoutes());
+
+// WebSocket
+setupWebSocket(io);
+
+// Error handling
+app.use((err, req, res, next) => {
+  logger.error('Error:', err);
+  res.status(err.status || 500).json({
+    error: err.message || 'Internal Server Error',
+    status: err.status || 500
   });
 });
 
 // 404 Handler
 app.use((req, res) => {
-  res.status(404).json({
-    error: 'Route not found',
-    path: req.path,
-  });
+  res.status(404).json({ error: 'Route not found' });
 });
 
-// Error Handler
-app.use(errorHandler);
-
-// ============================================
-// INICIALIZAÇÃO
-// ============================================
-
-async function initializeApp() {
+// Initialize and start
+async function start() {
   try {
-    logger.info('🚀 Inicializando Automation Ops Platform...');
-
-    // Conectar ao banco de dados
-    logger.info('📊 Conectando ao PostgreSQL...');
-    await setupDatabase();
+    logger.info('🚀 Iniciando servidor...');
+    
+    // Inicializa banco de dados
+    await initializeDatabase();
     logger.info('✅ PostgreSQL conectado');
-
-    // Conectar ao Redis
-    logger.info('🔴 Conectando ao Redis...');
-    const redis = await initializeRedis();
+    
+    // Inicializa Redis
+    await initializeRedis();
     logger.info('✅ Redis conectado');
-
-    // Configurar WebSocket
-    logger.info('🔌 Configurando WebSocket...');
-    setupWebSocket(io);
-    logger.info('✅ WebSocket configurado');
-
-    // Iniciar servidor
-    const PORT = process.env.PORT || 3000;
-    const HOST = process.env.HOST || '0.0.0.0';
-
-    httpServer.listen(PORT, HOST, () => {
-      logger.info(`✅ Servidor rodando em http://${HOST}:${PORT}`);
-      logger.info(`🌍 Ambiente: ${process.env.NODE_ENV}`);
-      logger.info(`📱 WebSocket ativo em ws://${HOST}:${PORT}`);
-      logger.info(`🎉 Central de Automação Operacional Online!\n`);
+    
+    // Inicia servidor HTTP
+    server.listen(config.PORT, () => {
+      logger.info(`✅ Servidor rodando em http://localhost:${config.PORT}`);
+      logger.info(`✅ WebSocket em ws://localhost:${config.PORT}`);
     });
   } catch (error) {
-    logger.error('❌ Erro ao inicializar aplicação:', error);
+    logger.error('❌ Erro ao iniciar servidor:', error);
     process.exit(1);
   }
 }
 
-// Tratar sinais de encerramento
-process.on('SIGTERM', () => {
-  logger.info('SIGTERM recebido. Encerrando...');
-  httpServer.close(() => {
+// Graceful shutdown
+process.on('SIGTERM', async () => {
+  logger.info('SIGTERM recebido, encerrando...');
+  server.close(() => {
     logger.info('Servidor encerrado');
     process.exit(0);
   });
 });
 
-process.on('SIGINT', () => {
-  logger.info('SIGINT recebido. Encerrando...');
-  httpServer.close(() => {
-    logger.info('Servidor encerrado');
-    process.exit(0);
-  });
-});
+start();
 
-// Inicializar aplicação
-initializeApp();
-
-export { app, httpServer, io };
+module.exports = { app, server, io };

@@ -1,33 +1,32 @@
-FROM node:20-alpine
+FROM node:18-alpine
 
 WORKDIR /app
 
-# Instalar dependências do sistema para Playwright
+# Instala browser dependencies
 RUN apk add --no-cache \
     chromium \
     firefox \
-    webkit \
-    noto-sans \
-    font-noto-cjk \
+    wget \
     python3 \
     make \
-    g++ \
-    bash
+    g++
 
-# Copiar package files
+# Copia package files
 COPY package*.json ./
 
-# Instalar dependências
-RUN npm ci
+# Instala dependencies
+RUN npm install --production
 
-# Instalar Playwright browsers
-RUN npx playwright install chromium firefox webkit
+# Copia source code
+COPY src ./src
+COPY .env.example ./.env
 
-# Copiar código
-COPY . .
-
-# Expor porta
+# Expoe porta
 EXPOSE 3000
 
-# Comando de inicialização
-CMD ["npm", "start"]
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD node -e "require('http').get('http://localhost:3000/health', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})"
+
+# Inicia aplicação
+CMD ["node", "src/server.js"]

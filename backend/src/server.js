@@ -1,72 +1,63 @@
 const express = require('express');
+const cors = require('cors');
+const helmet = require('helmet');
 const http = require('http');
 const socketIo = require('socket.io');
-const cors = require('cors');
 const dotenv = require('dotenv');
 const path = require('path');
+
+const logger = require('./utils/logger');
+const database = require('./config/database');
+const redisClient = require('./config/redis');
 
 // Load environment variables
 dotenv.config();
 
-// Import routes
-const authRoutes = require('./api/routes/authRoutes');
-const executionRoutes = require('./api/routes/executionRoutes');
-const sessionRoutes = require('./api/routes/sessionRoutes');
-const taskRoutes = require('./api/routes/taskRoutes');
-const logRoutes = require('./api/routes/logRoutes');
-const screenshotRoutes = require('./api/routes/screenshotRoutes');
-const ocrRoutes = require('./api/routes/ocrRoutes');
-
-// Import services
-const { initializeDatabase } = require('./services/database/connectionPool');
-const { setupWebSocket } = require('./services/websocket/socketHandler');
-const { initializeAutomationQueue } = require('./services/automation/queueManager');
-
-// Create Express app
 const app = express();
 const server = http.createServer(app);
-
-// Initialize Socket.io
 const io = socketIo(server, {
   cors: {
     origin: process.env.WS_CORS_ORIGIN || 'http://localhost:3001',
-    methods: ['GET', 'POST'],
+    methods: ['GET', 'POST']
   },
+  transports: ['websocket', 'polling']
 });
 
 // Middleware
-app.use(cors({
-  origin: process.env.CORS_ORIGIN || 'http://localhost:3001',
-  credentials: true,
-}));
+app.use(helmet());
+app.use(cors({ origin: process.env.CORS_ORIGIN || 'http://localhost:3001' }));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
-// Static files
-app.use('/screenshots', express.static(path.join(__dirname, '../screenshots')));
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+// Store io instance in app
+app.set('io', io);
+app.set('redisClient', redisClient);
+app.set('db', database);
 
-// Health check
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
-});
+// Routes
+const authRoutes = require('./api/routes/auth');
+const executionRoutes = require('./api/routes/executions');
+const sessionRoutes = require('./api/routes/sessions');
+const taskRoutes = require('./api/routes/tasks');
+const logRoutes = require('./api/routes/logs');
+const screenshotRoutes = require('./api/routes/screenshots');
+const systemRoutes = require('./api/routes/system');
 
-// API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/executions', executionRoutes);
 app.use('/api/sessions', sessionRoutes);
 app.use('/api/tasks', taskRoutes);
 app.use('/api/logs', logRoutes);
 app.use('/api/screenshots', screenshotRoutes);
-app.use('/api/ocr', ocrRoutes);
+app.use('/api/system', systemRoutes);
 
-// Error handling middleware
-app.use((err, req, res, next) => {
-  console.error('Error:', err);
-  res.status(err.status || 500).json({
-    error: err.message || 'Internal server error',
-    timestamp: new Date().toISOString(),
-  });
+// Static files
+app.use('/screenshots', express.static(path.join(__dirname, '..', 'screenshots')));
+app.use('/logs', express.static(path.join(__dirname, '..', 'logs')));
+
+// Health check
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
 // 404 handler
@@ -74,58 +65,40 @@ app.use((req, res) => {
   res.status(404).json({ error: 'Route not found' });
 });
 
+// Error handler
+app.use((err, req, res, next) => {
+  logger.error('Error:', err);
+  res.status(err.status || 500).json({
+    error: err.message || 'Internal server error',
+    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
+  });
+});
+
+// WebSocket
+require('./services/websocket')(io, database, redisClient);
+
 // Initialize services
-async function initialize() {
-  try {
-    console.log('🚀 Initializing Automation Operations Platform...');
+const { AutomationService } = require('./services/automation/AutomationService');
+const { TaskQueueService } = require('./services/queue/TaskQueueService');
 
-    // Initialize database
-    console.log('📊 Connecting to database...');
-    await initializeDatabase();
-    console.log('✅ Database connected');
+const automationService = new AutomationService(io, redisClient, database);
+const taskQueueService = new TaskQueueService(io, redisClient, database, automationService);
 
-    // Setup WebSocket
-    console.log('📡 Setting up WebSocket...');
-    setupWebSocket(io);
-    console.log('✅ WebSocket initialized');
+app.set('automationService', automationService);
+app.set('taskQueueService', taskQueueService);
 
-    // Initialize automation queue
-    console.log('⚙️  Initializing automation queue...');
-    await initializeAutomationQueue(io);
-    console.log('✅ Automation queue initialized');
+// Start task queue processor
+taskQueueService.start();
 
-    // Start server
-    const PORT = process.env.PORT || 3000;
-    server.listen(PORT, () => {
-      console.log(`\n✨ Server running on port ${PORT}`);
-      console.log(`📍 API: http://localhost:${PORT}`);
-      console.log(`📡 WebSocket: ws://localhost:${PORT}`);
-      console.log(`\n🎯 Environment: ${process.env.NODE_ENV || 'development'}\n`);
-    });
-  } catch (error) {
-    console.error('❌ Failed to initialize:', error);
-    process.exit(1);
-  }
-}
+const PORT = process.env.PORT || 3000;
+const HOST = process.env.HOST || 'localhost';
 
-// Handle graceful shutdown
-process.on('SIGTERM', () => {
-  console.log('\n⚠️  SIGTERM received, shutting down gracefully...');
-  server.close(() => {
-    console.log('✅ Server closed');
-    process.exit(0);
-  });
+server.listen(PORT, HOST, () => {
+  logger.info(`🚀 Automation Ops Backend running on http://${HOST}:${PORT}`);
+  logger.info(`📊 Dashboard available at http://localhost:3001`);
+  logger.info(`🔌 WebSocket ready on ws://${HOST}:${PORT}`);
+  logger.info(`🗄️  Database: ${process.env.DB_NAME || 'automation_ops'}`);
+  logger.info(`💾 Redis: ${process.env.REDIS_HOST || 'localhost'}:${process.env.REDIS_PORT || 6379}`);
 });
-
-process.on('SIGINT', () => {
-  console.log('\n⚠️  SIGINT received, shutting down gracefully...');
-  server.close(() => {
-    console.log('✅ Server closed');
-    process.exit(0);
-  });
-});
-
-// Start application
-initialize();
 
 module.exports = { app, server, io };

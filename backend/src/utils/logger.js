@@ -1,12 +1,9 @@
-import winston from 'winston';
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
+const fs = require('fs');
+const path = require('path');
+const winston = require('winston');
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const logsDir = process.env.LOG_DIR || './logs';
+const logsDir = path.join(__dirname, '../../logs');
 
-// Criar diretório de logs se não existir
 if (!fs.existsSync(logsDir)) {
   fs.mkdirSync(logsDir, { recursive: true });
 }
@@ -16,37 +13,29 @@ const logger = winston.createLogger({
   format: winston.format.combine(
     winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
     winston.format.errors({ stack: true }),
-    winston.format.splat(),
     winston.format.json()
   ),
   defaultMeta: { service: 'automation-ops' },
   transports: [
-    // Error logs
-    new winston.transports.File({
-      filename: path.join(logsDir, 'error.log'),
-      level: 'error',
-      maxsize: 5242880,
-      maxFiles: 5,
+    new winston.transports.File({ 
+      filename: path.join(logsDir, 'error.log'), 
+      level: 'error' 
     }),
-    // Combined logs
-    new winston.transports.File({
-      filename: path.join(logsDir, 'combined.log'),
-      maxsize: 5242880,
-      maxFiles: 5,
-    }),
-  ],
+    new winston.transports.File({ 
+      filename: path.join(logsDir, 'combined.log') 
+    })
+  ]
 });
 
-// Console logging em desenvolvimento
 if (process.env.NODE_ENV !== 'production') {
-  logger.add(
-    new winston.transports.Console({
-      format: winston.format.combine(
-        winston.format.colorize(),
-        winston.format.simple()
-      ),
-    })
-  );
+  logger.add(new winston.transports.Console({
+    format: winston.format.combine(
+      winston.format.colorize(),
+      winston.format.printf(
+        (info) => `${info.timestamp} [${info.level}] ${info.message}`
+      )
+    )
+  }));
 }
 
-export { logger };
+module.exports = logger;

@@ -4,31 +4,29 @@ WORKDIR /app
 
 # Install system dependencies for Playwright
 RUN apk add --no-cache \
-    chromium \
-    firefox \
-    webkit-dev \
-    python3 \
-    make \
-    g++
+  chromium \
+  firefox \
+  webkit \
+  python3 \
+  make \
+  g++ \
+  cairo-dev \
+  jpeg-dev \
+  pango-dev \
+  giflib-dev \
+  pixman-dev
 
-# Copy package files
 COPY package*.json ./
 
-# Install dependencies
-RUN npm ci --only=production
+RUN npm ci --only=production && \
+  npx playwright install --with-deps
 
-# Copy application
-COPY . .
+COPY src ./src
+COPY .env.example .env
 
-# Create necessary directories
-RUN mkdir -p logs screenshots
-
-# Expose port
 EXPOSE 3000
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
   CMD node -e "require('http').get('http://localhost:3000/health', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})"
 
-# Start application
 CMD ["node", "src/server.js"]

@@ -1,0 +1,155 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
+/* Scrollbar Styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgb(20, 20, 20);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgb(60, 60, 60);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgb(80, 80, 80);
+}
+
+/* Base Styles */
+body {
+  @apply bg-surface text-white font-sans;
+  color-scheme: dark;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+/* Terminal Styles */
+.terminal {
+  @apply font-mono text-sm bg-surface-alt border border-subtle rounded;
+}
+
+.log-entry {
+  @apply font-mono text-xs py-1 px-2 border-b border-subtle last:border-b-0;
+}
+
+.log-debug {
+  @apply text-cyan-400;
+}
+
+.log-info {
+  @apply text-blue-400;
+}
+
+.log-warn {
+  @apply text-yellow-400;
+}
+
+.log-error {
+  @apply text-red-400;
+}
+
+/* Cyber Glow Effects */
+.cyber-glow {
+  box-shadow: 0 0 20px rgba(14, 165, 233, 0.5);
+}
+
+.cyber-glow-sm {
+  box-shadow: 0 0 10px rgba(14, 165, 233, 0.3);
+}
+
+.cyber-glow-lg {
+  box-shadow: 0 0 40px rgba(14, 165, 233, 0.6);
+}
+
+/* Animations */
+@keyframes pulse-glow {
+  0%, 100% {
+    opacity: 1;
+    box-shadow: 0 0 20px rgba(14, 165, 233, 0.5);
+  }
+  50% {
+    opacity: 0.8;
+    box-shadow: 0 0 30px rgba(14, 165, 233, 0.8);
+  }
+}
+
+@keyframes scan {
+  0% {
+    top: 0%;
+  }
+  100% {
+    top: 100%;
+  }
+}
+
+.pulse-glow {
+  animation: pulse-glow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.scan-line {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(14, 165, 233, 0.5), transparent);
+  animation: scan 3s linear infinite;
+}
+
+/* Transitions */
+.transition-all {
+  transition: all 300ms ease-out;
+}
+
+/* Grid System */
+.grid-cols-3-responsive {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+
+@media (min-width: 1024px) {
+  .grid-cols-3-responsive {
+    grid-template-columns: 280px 1fr 400px;
+  }
+}
+
+/* Smooth Scrollbar */
+.smooth-scroll {
+  scroll-behavior: smooth;
+}
+
+/* Status Badge Styles */
+.status-badge {
+  @apply inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium;
+}
+
+.status-running {
+  @apply bg-blue-900/30 text-blue-400 border border-blue-700/50;
+}
+
+.status-success {
+  @apply bg-green-900/30 text-green-400 border border-green-700/50;
+}
+
+.status-error {
+  @apply bg-red-900/30 text-red-400 border border-red-700/50;
+}
+
+.status-warning {
+  @apply bg-yellow-900/30 text-yellow-400 border border-yellow-700/50;
+}
+
+.status-pending {
+  @apply bg-gray-800 text-gray-400 border border-gray-700;
+}

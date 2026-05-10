@@ -1,46 +1,67 @@
-const winston = require('winston');
+const pino = require('pino');
 const fs = require('fs');
 const path = require('path');
-const config = require('./index');
 
-const logsDir = config.LOG_DIR;
-if (!fs.existsSync(logsDir)) {
-  fs.mkdirSync(logsDir, { recursive: true });
+const logDir = process.env.LOG_DIR || './logs';
+
+// Create logs directory if it doesn't exist
+if (!fs.existsSync(logDir)) {
+  fs.mkdirSync(logDir, { recursive: true });
 }
 
-const logger = winston.createLogger({
-  level: config.LOG_LEVEL,
-  format: winston.format.combine(
-    winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
-    winston.format.errors({ stack: true }),
-    winston.format.splat(),
-    winston.format.json()
-  ),
-  defaultMeta: { service: 'automation-ops' },
-  transports: [
-    // Console
-    new winston.transports.Console({
-      format: winston.format.combine(
-        winston.format.colorize(),
-        winston.format.printf(
-          info => `${info.timestamp} [${info.level}]: ${info.message}`
-        )
-      )
-    }),
-    // File - Error
-    new winston.transports.File({
-      filename: path.join(logsDir, 'error.log'),
-      level: 'error',
-      maxsize: 10485760, // 10MB
-      maxFiles: 5
-    }),
-    // File - Combined
-    new winston.transports.File({
-      filename: path.join(logsDir, 'combined.log'),
-      maxsize: 10485760,
-      maxFiles: 5
-    })
-  ]
+const transport = pino.transport({
+  target: 'pino-pretty',
+  options: {
+    colorize: true,
+    levelFirst: true,
+    singleLine: false,
+    translateTime: 'SYS:standard',
+    ignore: 'pid,hostname'
+  }
 });
 
-module.exports = logger;
+const logger = pino(
+  {
+    level: process.env.LOG_LEVEL || 'debug',
+    timestamp: pino.stdTimeFunctions.isoTime
+  },
+  transport
+);
+
+// Log to file as well
+const fileStream = fs.createWriteStream(
+  path.join(logDir, `app-${new Date().toISOString().split('T')[0]}.log`),
+  { flags: 'a' }
+);
+
+const fileLogger = pino(
+  {
+    level: process.env.LOG_LEVEL || 'debug',
+    timestamp: pino.stdTimeFunctions.isoTime
+  },
+  fileStream
+);
+
+// Export both loggers
+module.exports = {
+  info: (msg, data) => {
+    logger.info(msg, data);
+    fileLogger.info(msg, data);
+  },
+  error: (msg, data) => {
+    logger.error(msg, data);
+    fileLogger.error(msg, data);
+  },
+  warn: (msg, data) => {
+    logger.warn(msg, data);
+    fileLogger.warn(msg, data);
+  },
+  debug: (msg, data) => {
+    logger.debug(msg, data);
+    fileLogger.debug(msg, data);
+  },
+  trace: (msg, data) => {
+    logger.trace(msg, data);
+    fileLogger.trace(msg, data);
+  }
+};

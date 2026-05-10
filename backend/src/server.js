@@ -1,90 +1,97 @@
-require('dotenv').config();
 const express = require('express');
-const cors = require('cors');
-const helmet = require('helmet');
+const cors = require('express-cors');
 const http = require('http');
-const socketIO = require('socket.io');
+const socketIo = require('socket.io');
+require('dotenv').config();
 
-const config = require('./config');
 const logger = require('./config/logger');
-const { initializeDatabase } = require('./services/database');
-const { initializeRedis } = require('./services/redis');
-const { setupWebSocket } = require('./services/websocket');
-const { setupRoutes } = require('./api/routes');
+const database = require('./config/database');
+const redis = require('./config/redis');
+const websocketHandler = require('./services/websocket/handler');
+
+// Routes
+const authRoutes = require('./api/routes/auth');
+const executionRoutes = require('./api/routes/executions');
+const sessionRoutes = require('./api/routes/sessions');
+const logsRoutes = require('./api/routes/logs');
+const screenshotRoutes = require('./api/routes/screenshots');
+const taskRoutes = require('./api/routes/tasks');
+const statsRoutes = require('./api/routes/stats');
+const healthRoutes = require('./api/routes/health');
 
 const app = express();
 const server = http.createServer(app);
-const io = socketIO(server, {
+const io = socketIo(server, {
   cors: {
-    origin: config.CORS_ORIGIN || 'http://localhost:3001',
+    origin: process.env.WS_CORS_ORIGIN || 'http://localhost:3001',
     methods: ['GET', 'POST']
-  }
+  },
+  transports: ['websocket', 'polling']
 });
 
-// Middlewares
-app.use(helmet());
+// Middleware
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
-// Health check
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+// Request logging
+app.use((req, res, next) => {
+  logger.info(`${req.method} ${req.path}`);
+  next();
 });
 
-// API Routes
-app.use('/api', setupRoutes());
-
-// WebSocket
-setupWebSocket(io);
-
-// Error handling
+// Error handling middleware
 app.use((err, req, res, next) => {
-  logger.error('Error:', err);
+  logger.error(err);
   res.status(err.status || 500).json({
-    error: err.message || 'Internal Server Error',
+    error: err.message,
     status: err.status || 500
   });
 });
 
-// 404 Handler
-app.use((req, res) => {
-  res.status(404).json({ error: 'Route not found' });
+// API Routes
+app.use('/api/auth', authRoutes);
+app.use('/api/executions', executionRoutes);
+app.use('/api/sessions', sessionRoutes);
+app.use('/api/logs', logsRoutes);
+app.use('/api/screenshots', screenshotRoutes);
+app.use('/api/tasks', taskRoutes);
+app.use('/api/stats', statsRoutes);
+app.use('/api/health', healthRoutes);
+
+// WebSocket Handler
+websocketHandler.init(io);
+
+// Database initialization
+database.init().then(() => {
+  logger.info('Database connected');
+}).catch(err => {
+  logger.error('Database connection failed:', err);
+  process.exit(1);
 });
 
-// Initialize and start
-async function start() {
-  try {
-    logger.info('🚀 Iniciando servidor...');
-    
-    // Inicializa banco de dados
-    await initializeDatabase();
-    logger.info('✅ PostgreSQL conectado');
-    
-    // Inicializa Redis
-    await initializeRedis();
-    logger.info('✅ Redis conectado');
-    
-    // Inicia servidor HTTP
-    server.listen(config.PORT, () => {
-      logger.info(`✅ Servidor rodando em http://localhost:${config.PORT}`);
-      logger.info(`✅ WebSocket em ws://localhost:${config.PORT}`);
-    });
-  } catch (error) {
-    logger.error('❌ Erro ao iniciar servidor:', error);
-    process.exit(1);
-  }
-}
+// Redis initialization
+redis.init().then(() => {
+  logger.info('Redis connected');
+}).catch(err => {
+  logger.error('Redis connection failed:', err);
+});
+
+// Server startup
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+  logger.info(`🚀 Server running on port ${PORT}`);
+  logger.info(`📊 WebSocket ready on ws://localhost:${PORT}`);
+  logger.info(`🌍 CORS enabled for ${process.env.WS_CORS_ORIGIN}`);
+});
 
 // Graceful shutdown
-process.on('SIGTERM', async () => {
-  logger.info('SIGTERM recebido, encerrando...');
+process.on('SIGTERM', () => {
+  logger.info('SIGTERM signal received: closing HTTP server');
   server.close(() => {
-    logger.info('Servidor encerrado');
+    logger.info('HTTP server closed');
     process.exit(0);
   });
 });
 
-start();
-
-module.exports = { app, server, io };
+module.exports = app;

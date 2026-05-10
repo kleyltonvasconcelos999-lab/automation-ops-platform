@@ -1,20 +1,29 @@
 # Dependencies
 node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
+.pnp
+.pnp.js
 
 # Environment
 .env
 .env.local
 .env.*.local
 
-# Build outputs
+# Build
 build/
 dist/
 .next/
 out/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS
+.DS_Store
+Thumbs.db
 
 # IDE
 .vscode/
@@ -22,26 +31,13 @@ out/
 *.swp
 *.swo
 *~
-.DS_Store
 
-# Logs
-logs/
-*.log
+# Playwright
+.playwright/
+test-results/
 
-# Runtime data
-pids/
-*.pid
-*.seed
-*.pid.lock
-
-# OS
-Thumbs.db
-.DS_Store
-
-# Database
-*.sqlite
-*.db
-
-# Uploads
-uploads/
+# Screenshots
 screenshots/
+
+# Docker
+.dockerignore

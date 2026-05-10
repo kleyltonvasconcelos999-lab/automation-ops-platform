@@ -2,49 +2,52 @@ version: '3.8'
 
 services:
   postgres:
-    image: postgres:15-alpine
-    container_name: automation-postgres
+    image: postgres:16-alpine
+    container_name: automation_ops_db
     environment:
-      POSTGRES_USER: ${DB_USER:-automation}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-automation123}
+      POSTGRES_USER: ${DB_USER:-admin}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-password123}
       POSTGRES_DB: ${DB_NAME:-automation_ops}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
     ports:
       - "${DB_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U automation"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-admin}"]
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - automation_network
 
   redis:
     image: redis:7-alpine
-    container_name: automation-redis
+    container_name: automation_ops_cache
     ports:
       - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - automation_network
 
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: automation-backend
+    container_name: automation_ops_backend
     environment:
-      NODE_ENV: ${NODE_ENV:-production}
-      PORT: ${BACKEND_PORT:-3001}
-      DB_HOST: postgres
-      DB_PORT: 5432
-      DB_USER: ${DB_USER:-automation}
-      DB_PASSWORD: ${DB_PASSWORD:-automation123}
-      DB_NAME: ${DB_NAME:-automation_ops}
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: ${BACKEND_PORT:-3000}
+      DATABASE_URL: postgresql://${DB_USER:-admin}:${DB_PASSWORD:-password123}@postgres:5432/${DB_NAME:-automation_ops}
       REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET:-your-secret-key-change-in-production}
     ports:
-      - "${BACKEND_PORT:-3001}:3001"
+      - "${BACKEND_PORT:-3000}:3000"
     depends_on:
       postgres:
         condition: service_healthy
@@ -53,30 +56,33 @@ services:
     volumes:
       - ./backend:/app
       - /app/node_modules
-      - automation_screenshots:/app/uploads/screenshots
-      - automation_logs:/app/logs
+    networks:
+      - automation_network
+    restart: unless-stopped
 
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: automation-frontend
+    container_name: automation_ops_frontend
     environment:
-      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3001}
+      NEXT_PUBLIC_API_URL: http://localhost:3000
+      NEXT_PUBLIC_WS_URL: ws://localhost:3000
     ports:
-      - "${FRONTEND_PORT:-3000}:3000"
+      - "${FRONTEND_PORT:-3001}:3000"
     depends_on:
       - backend
     volumes:
       - ./frontend:/app
       - /app/node_modules
-      - /app/.next
+    networks:
+      - automation_network
+    restart: unless-stopped
 
 volumes:
   postgres_data:
-  automation_screenshots:
-  automation_logs:
+  redis_data:
 
 networks:
-  default:
-    name: automation_network
+  automation_network:
+    driver: bridge
